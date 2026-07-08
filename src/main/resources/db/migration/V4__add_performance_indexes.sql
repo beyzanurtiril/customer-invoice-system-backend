@@ -1,0 +1,9 @@
+CREATE INDEX IF NOT EXISTS idx_invoice_customer_id ON invoice (customer_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_product_id ON invoice (product_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_due_date ON invoice (due_date);
+CREATE INDEX IF NOT EXISTS idx_invoice_payment_date ON invoice (payment_date);
+CREATE INDEX IF NOT EXISTS idx_subscription_customer_id ON subscription (customer_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_product_id ON subscription (product_id);
+CREATE INDEX IF NOT EXISTS idx_recharge_customer_id ON recharge (customer_id);
+CREATE INDEX IF NOT EXISTS idx_collection_action_invoice_id ON collection_action (invoice_id);
+CREATE INDEX IF NOT EXISTS idx_customer_region_id ON customer (region_id);

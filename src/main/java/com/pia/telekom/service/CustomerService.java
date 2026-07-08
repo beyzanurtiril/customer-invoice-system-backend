@@ -1,0 +1,168 @@
+package com.pia.telekom.service;
+
+import com.pia.telekom.dto.CustomerRequest;
+import com.pia.telekom.dto.CustomerResponse;
+import com.pia.telekom.dto.RegionResponse;
+import com.pia.telekom.entity.Customer;
+import com.pia.telekom.entity.Region;
+import com.pia.telekom.repository.CustomerRepository;
+import com.pia.telekom.repository.InvoiceRepository;
+import com.pia.telekom.repository.RegionRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class CustomerService {
+
+    private static final int RISK_THRESHOLD = 3;
+    private static final int LOOKBACK_MONTHS = 12;
+
+    private final CustomerRepository customerRepository;
+    private final RegionRepository regionRepository;
+    private final InvoiceRepository invoiceRepository;
+
+    @Transactional(readOnly = true)
+    public Page<CustomerResponse> getAllCustomers(Pageable pageable) {
+        Page<Customer> customerPage = customerRepository.findAll(pageable);
+        Map<Integer, Long> riskMap = buildOverdueCountMap(customerPage.getContent());
+        return customerPage.map(customer -> toResponse(customer, riskMap));
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerResponse getCustomerById(Integer customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Müşteri bulunamadı: id=" + customerId));
+        Map<Integer, Long> riskMap = buildOverdueCountMap(List.of(customer));
+        return toResponse(customer, riskMap);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CustomerResponse> searchCustomers(String name, String surname,
+                                                  Integer regionId, String cityType,
+                                                  String subscriptionType, Integer minOverdueCount,
+                                                  Pageable pageable) {
+        Specification<Customer> spec = com.pia.telekom.specification.CustomerSpecification.filterBy(
+                name, surname, regionId, cityType, subscriptionType, minOverdueCount);
+        Page<Customer> customerPage = customerRepository.findAll(spec, pageable);
+        Map<Integer, Long> riskMap = buildOverdueCountMap(customerPage.getContent());
+        return customerPage.map(customer -> toResponse(customer, riskMap));
+    }
+
+    @Transactional
+    public CustomerResponse createCustomer(CustomerRequest request) {
+        Region region = regionRepository.findById(request.regionId())
+                .orElseThrow(() -> new EntityNotFoundException("Bölge bulunamadı: id=" + request.regionId()));
+
+        Customer customer = Customer.builder()
+                .name(request.name())
+                .surname(request.surname())
+                .birthdate(request.birthDate())
+                .address(request.address())
+                .email(request.email())
+                .phone(request.phone())
+                .region(region)
+                .ageGroup(request.ageGroup())
+                .paymentChannelPreference(request.paymentChannelPreference())
+                .hasAutopay(request.hasAutopay() != null ? request.hasAutopay() : false)
+                .build();
+
+        Customer saved = customerRepository.save(customer);
+        return toResponse(saved, Map.of());
+    }
+
+    @Transactional
+    public CustomerResponse updateCustomer(Integer customerId, CustomerRequest request) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Müşteri bulunamadı: id=" + customerId));
+        Region region = regionRepository.findById(request.regionId())
+                .orElseThrow(() -> new EntityNotFoundException("Bölge bulunamadı: id=" + request.regionId()));
+
+        customer.setName(request.name());
+        customer.setSurname(request.surname());
+        customer.setBirthdate(request.birthDate());
+        customer.setAddress(request.address());
+        customer.setEmail(request.email());
+        customer.setPhone(request.phone());
+        customer.setRegion(region);
+        customer.setAgeGroup(request.ageGroup());
+        customer.setPaymentChannelPreference(request.paymentChannelPreference());
+        customer.setHasAutopay(request.hasAutopay() != null ? request.hasAutopay() : customer.getHasAutopay());
+
+        Customer updated = customerRepository.save(customer);
+        Map<Integer, Long> riskMap = buildOverdueCountMap(List.of(updated));
+        return toResponse(updated, riskMap);
+    }
+
+    @Transactional
+    public void deleteCustomer(Integer customerId) {
+        if (!customerRepository.existsById(customerId)) {
+            throw new EntityNotFoundException("Müşteri bulunamadı: id=" + customerId);
+        }
+        customerRepository.deleteById(customerId);
+    }
+
+    private Map<Integer, Long> buildOverdueCountMap(List<Customer> customers) {
+        if (customers.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Integer> customerIds = customers.stream().map(Customer::getCustomerId).toList();
+        LocalDate since = LocalDate.now().minusMonths(LOOKBACK_MONTHS);
+
+        List<Object[]> rows = invoiceRepository.countOverdueGroupedByCustomerIds(
+                LocalDate.now(), LocalDate.now().minusMonths(LOOKBACK_MONTHS), customerIds);
+        return rows.stream()
+                .collect(Collectors.toMap(
+                        row -> (Integer) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
+    private CustomerResponse toResponse(Customer customer, Map<Integer, Long> riskMap) {
+        RegionResponse regionResponse = new RegionResponse(
+                customer.getRegion().getRegionId(),
+                customer.getRegion().getName(),
+                customer.getRegion().getCityType(),
+                customer.getRegion().getPopulationWeight()
+        );
+
+        long overdueCount = riskMap.getOrDefault(customer.getCustomerId(), 0L);
+        String riskTag = calculateRiskTag(overdueCount);
+
+        return new CustomerResponse(
+                customer.getCustomerId(),
+                customer.getName(),
+                customer.getSurname(),
+                customer.getBirthdate(),
+                customer.getAddress(),
+                customer.getEmail(),
+                customer.getPhone(),
+                regionResponse,
+                customer.getAgeGroup(),
+                customer.getPaymentChannelPreference(),
+                customer.getHasAutopay(),
+                riskTag
+        );
+    }
+
+    private String calculateRiskTag(long overdueCount) {
+        if (overdueCount >= RISK_THRESHOLD) {
+            return "RISKLI";
+        } else if (overdueCount == 0) {
+            return "GÜVENİLİR";
+        } else {
+            return "NORMAL";
+        }
+    }
+}

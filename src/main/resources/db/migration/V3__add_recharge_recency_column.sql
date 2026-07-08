@@ -1,0 +1,1 @@
+ALTER TABLE customer_stats ADD COLUMN IF NOT EXISTS days_since_last_recharge INTEGER;
