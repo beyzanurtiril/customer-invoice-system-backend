@@ -21,8 +21,7 @@ public class InvoiceListController {
     @GetMapping
     public Page<InvoiceResponse> getAllInvoices(
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) String status,
             @ParameterObject Pageable pageable) {
-        return invoiceService.searchInvoices(query, status, pageable);
+        return invoiceService.searchInvoices(query, pageable);
     }
 }

@@ -142,7 +142,7 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> searchInvoices(String query, String status, Pageable pageable) {
-        return invoiceRepository.searchInvoices(query, status, pageable).map(this::toResponse);
+    public Page<InvoiceResponse> searchInvoices(String query, Pageable pageable) {
+        return invoiceRepository.searchInvoices(query, pageable).map(this::toResponse);
     }
 }

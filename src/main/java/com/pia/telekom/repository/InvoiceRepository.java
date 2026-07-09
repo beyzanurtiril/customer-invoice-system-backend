@@ -98,31 +98,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
     JOIN FETCH i.customer c
     LEFT JOIN FETCH i.product
     WHERE (:query IS NULL OR :query = ''
-        OR CAST(i.invoiceId AS string) LIKE CONCAT('%', :query, '%')
-        OR LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%'))
-        OR LOWER(c.surname) LIKE LOWER(CONCAT('%', :query, '%'))
-        OR CAST(i.invoiceAmount AS string) LIKE CONCAT('%', :query, '%')
-    )
-    AND (:status IS NULL OR :status = ''
-        OR (:status = 'PAID' AND i.paymentDate IS NOT NULL)
-        OR (:status = 'OVERDUE' AND i.paymentDate IS NULL AND i.dueDate < CURRENT_DATE)
-        OR (:status = 'UNPAID' AND i.paymentDate IS NULL AND i.dueDate >= CURRENT_DATE)
+        OR LOWER(CONCAT(c.name, ' ', c.surname)) LIKE LOWER(CONCAT('%', :query, '%'))
     )
     """,
             countQuery = """
     SELECT COUNT(i) FROM Invoice i
     JOIN i.customer c
     WHERE (:query IS NULL OR :query = ''
-        OR CAST(i.invoiceId AS string) LIKE CONCAT('%', :query, '%')
-        OR LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%'))
-        OR LOWER(c.surname) LIKE LOWER(CONCAT('%', :query, '%'))
-        OR CAST(i.invoiceAmount AS string) LIKE CONCAT('%', :query, '%')
-    )
-    AND (:status IS NULL OR :status = ''
-        OR (:status = 'PAID' AND i.paymentDate IS NOT NULL)
-        OR (:status = 'OVERDUE' AND i.paymentDate IS NULL AND i.dueDate < CURRENT_DATE)
-        OR (:status = 'UNPAID' AND i.paymentDate IS NULL AND i.dueDate >= CURRENT_DATE)
+        OR LOWER(CONCAT(c.name, ' ', c.surname)) LIKE LOWER(CONCAT('%', :query, '%'))
     )
     """)
-    Page<Invoice> searchInvoices(@Param("query") String query, @Param("status") String status, Pageable pageable);
+    Page<Invoice> searchInvoices(@Param("query") String query, Pageable pageable);
 }

@@ -25,4 +25,7 @@ public interface CustomerRiskAnalysisRepository extends JpaRepository<CustomerRi
     ORDER BY cra.riskScore DESC NULLS LAST
     """)
     Page<CustomerRiskAnalysis> findByRecommendAction(@Param("action") String action, Pageable pageable);
+
+    @Query("SELECT c.customerId, c.behaviorCategory FROM CustomerRiskAnalysis c WHERE c.customerId IN :customerIds")
+    List<Object[]> findBehaviorCategoriesByCustomerIds(@Param("customerIds") List<Integer> customerIds);
 }

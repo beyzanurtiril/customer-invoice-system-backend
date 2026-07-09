@@ -6,6 +6,7 @@ import com.pia.telekom.dto.RegionResponse;
 import com.pia.telekom.entity.Customer;
 import com.pia.telekom.entity.Region;
 import com.pia.telekom.repository.CustomerRepository;
+import com.pia.telekom.repository.CustomerRiskAnalysisRepository;
 import com.pia.telekom.repository.InvoiceRepository;
 import com.pia.telekom.repository.RegionRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Period;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -31,12 +33,14 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final RegionRepository regionRepository;
     private final InvoiceRepository invoiceRepository;
+    private final CustomerRiskAnalysisRepository customerRiskAnalysisRepository;
 
     @Transactional(readOnly = true)
     public Page<CustomerResponse> getAllCustomers(Pageable pageable) {
         Page<Customer> customerPage = customerRepository.findAll(pageable);
         Map<Integer, Long> riskMap = buildOverdueCountMap(customerPage.getContent());
-        return customerPage.map(customer -> toResponse(customer, riskMap));
+        Map<Integer, String> behaviorMap = buildBehaviorCategoryMap(customerPage.getContent());
+        return customerPage.map(customer -> toResponse(customer, riskMap, behaviorMap));
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +48,8 @@ public class CustomerService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new EntityNotFoundException("Müşteri bulunamadı: id=" + customerId));
         Map<Integer, Long> riskMap = buildOverdueCountMap(List.of(customer));
-        return toResponse(customer, riskMap);
+        Map<Integer, String> behaviorMap = buildBehaviorCategoryMap(List.of(customer));
+        return toResponse(customer, riskMap, behaviorMap);
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +61,8 @@ public class CustomerService {
                 name, surname, regionId, cityType, subscriptionType, minOverdueCount);
         Page<Customer> customerPage = customerRepository.findAll(spec, pageable);
         Map<Integer, Long> riskMap = buildOverdueCountMap(customerPage.getContent());
-        return customerPage.map(customer -> toResponse(customer, riskMap));
+        Map<Integer, String> behaviorMap = buildBehaviorCategoryMap(customerPage.getContent());
+        return customerPage.map(customer -> toResponse(customer, riskMap, behaviorMap));
     }
 
     @Transactional
@@ -72,13 +78,13 @@ public class CustomerService {
                 .email(request.email())
                 .phone(request.phone())
                 .region(region)
-                .ageGroup(request.ageGroup())
+                .ageGroup(deriveAgeGroup(request.birthDate()))
                 .paymentChannelPreference(request.paymentChannelPreference())
                 .hasAutopay(request.hasAutopay() != null ? request.hasAutopay() : false)
                 .build();
 
         Customer saved = customerRepository.save(customer);
-        return toResponse(saved, Map.of());
+        return toResponse(saved, Map.of(), Map.of());
     }
 
     @Transactional
@@ -95,13 +101,14 @@ public class CustomerService {
         customer.setEmail(request.email());
         customer.setPhone(request.phone());
         customer.setRegion(region);
-        customer.setAgeGroup(request.ageGroup());
+        customer.setAgeGroup(deriveAgeGroup(request.birthDate()));
         customer.setPaymentChannelPreference(request.paymentChannelPreference());
         customer.setHasAutopay(request.hasAutopay() != null ? request.hasAutopay() : customer.getHasAutopay());
 
         Customer updated = customerRepository.save(customer);
         Map<Integer, Long> riskMap = buildOverdueCountMap(List.of(updated));
-        return toResponse(updated, riskMap);
+        Map<Integer, String> behaviorMap = buildBehaviorCategoryMap(List.of(updated));
+        return toResponse(updated, riskMap, behaviorMap);
     }
 
     @Transactional
@@ -129,7 +136,7 @@ public class CustomerService {
                 ));
     }
 
-    private CustomerResponse toResponse(Customer customer, Map<Integer, Long> riskMap) {
+    private CustomerResponse toResponse(Customer customer, Map<Integer, Long> riskMap, Map<Integer, String> behaviorMap) {
         RegionResponse regionResponse = new RegionResponse(
                 customer.getRegion().getRegionId(),
                 customer.getRegion().getName(),
@@ -138,7 +145,11 @@ public class CustomerService {
         );
 
         long overdueCount = riskMap.getOrDefault(customer.getCustomerId(), 0L);
-        String riskTag = calculateRiskTag(overdueCount);
+        String behaviorCategory = behaviorMap.get(customer.getCustomerId());
+        String riskTag = mapBehaviorCategoryToTag(behaviorCategory);
+        if (riskTag == null) {
+            riskTag = calculateRiskTag(overdueCount);
+        }
 
         return new CustomerResponse(
                 customer.getCustomerId(),
@@ -164,5 +175,41 @@ public class CustomerService {
         } else {
             return "NORMAL";
         }
+    }
+
+    private String deriveAgeGroup(LocalDate birthDate) {
+        if (birthDate == null) return null;
+        int age = Period.between(birthDate, LocalDate.now()).getYears();
+        if (age < 18) return "0-17";
+        if (age <= 25) return "18-25";
+        if (age <= 35) return "26-35";
+        if (age <= 50) return "36-50";
+        if (age <= 65) return "51-65";
+        return "65+";
+    }
+
+    private Map<Integer, String> buildBehaviorCategoryMap(List<Customer> customers) {
+        if (customers.isEmpty()) {
+            return Map.of();
+        }
+        List<Integer> customerIds = customers.stream().map(Customer::getCustomerId).toList();
+        List<Object[]> rows = customerRiskAnalysisRepository.findBehaviorCategoriesByCustomerIds(customerIds);
+        return rows.stream()
+                .collect(Collectors.toMap(
+                        row -> (Integer) row[0],
+                        row -> (String) row[1]
+                ));
+    }
+
+    private String mapBehaviorCategoryToTag(String category) {
+        if (category == null) return null;
+        return switch (category) {
+            case "guvenli" -> "GÜVENİLİR";
+            case "orta_risk" -> "NORMAL";
+            case "riskli" -> "RİSKLİ";
+            case "aktif" -> "AKTİF";
+            case "pasif" -> "PASİF";
+            default -> null;
+        };
     }
 }
