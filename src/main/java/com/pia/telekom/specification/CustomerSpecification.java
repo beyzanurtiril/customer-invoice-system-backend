@@ -13,7 +13,8 @@ public class CustomerSpecification {
     public static Specification<Customer> filterBy(String name, String surname,
                                                    Integer regionId, String cityType,
                                                    String subscriptionType,
-                                                   Integer minOverdueCount) {
+                                                   Integer minOverdueCount,
+                                                   String riskCategory) {
         return (root, query, cb) -> {
             var predicates = cb.conjunction();
 
@@ -66,6 +67,24 @@ public class CustomerSpecification {
                 );
                 predicates = cb.and(predicates,
                         cb.greaterThanOrEqualTo(overdueSub, minOverdueCount.longValue()));
+            }
+
+            /*
+              Etiket filtresi: risk kategorisi customer_risk_analysis tablosunda
+              hazır durur (behavior_category: guvenli/orta_risk/riskli/aktif/pasif,
+              /api/analysis/recalculate-risk ile doldurulur). Gecikme sayısından
+              yeniden türetmek yerine doğrudan o tabloya EXISTS ile bakılır;
+              böylece rozetler ile filtre AYNI kaynağı kullanır ve tutarlıdır.
+            */
+            if (riskCategory != null && !riskCategory.isBlank()) {
+                Subquery<Integer> riskSub = query.subquery(Integer.class);
+                var riskRoot = riskSub.from(com.pia.telekom.entity.CustomerRiskAnalysis.class);
+                riskSub.select(cb.literal(1));
+                riskSub.where(
+                        cb.equal(riskRoot.get("customerId"), root.get("customerId")),
+                        cb.equal(cb.lower(riskRoot.get("behaviorCategory")), riskCategory.toLowerCase())
+                );
+                predicates = cb.and(predicates, cb.exists(riskSub));
             }
 
             return predicates;

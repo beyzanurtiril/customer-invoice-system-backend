@@ -56,9 +56,10 @@ public class CustomerService {
     public Page<CustomerResponse> searchCustomers(String name, String surname,
                                                   Integer regionId, String cityType,
                                                   String subscriptionType, Integer minOverdueCount,
+                                                  String riskCategory,
                                                   Pageable pageable) {
         Specification<Customer> spec = com.pia.telekom.specification.CustomerSpecification.filterBy(
-                name, surname, regionId, cityType, subscriptionType, minOverdueCount);
+                name, surname, regionId, cityType, subscriptionType, minOverdueCount, riskCategory);
         Page<Customer> customerPage = customerRepository.findAll(spec, pageable);
         Map<Integer, Long> riskMap = buildOverdueCountMap(customerPage.getContent());
         Map<Integer, String> behaviorMap = buildBehaviorCategoryMap(customerPage.getContent());

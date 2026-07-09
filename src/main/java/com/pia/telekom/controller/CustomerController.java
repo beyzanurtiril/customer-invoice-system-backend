@@ -38,8 +38,9 @@ public class CustomerController {
             @RequestParam(required = false) String cityType,
             @RequestParam(required = false) String subscriptionType,
             @RequestParam(required = false) Integer minOverdueCount,
+            @RequestParam(required = false) String riskCategory,
             @ParameterObject Pageable pageable) {
-        return customerService.searchCustomers(name, surname, regionId, cityType, subscriptionType, minOverdueCount, pageable);
+        return customerService.searchCustomers(name, surname, regionId, cityType, subscriptionType, minOverdueCount, riskCategory, pageable);
     }
 
     @PostMapping
