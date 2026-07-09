@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -18,7 +19,10 @@ public class InvoiceListController {
     private final InvoiceService invoiceService;
 
     @GetMapping
-    public Page<InvoiceResponse> getAllInvoices(@ParameterObject Pageable pageable) {
-        return invoiceService.getAllInvoices(pageable);
+    public Page<InvoiceResponse> getAllInvoices(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status,
+            @ParameterObject Pageable pageable) {
+        return invoiceService.searchInvoices(query, status, pageable);
     }
 }

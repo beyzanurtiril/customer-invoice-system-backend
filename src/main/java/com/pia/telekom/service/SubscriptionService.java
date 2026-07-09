@@ -62,4 +62,21 @@ public class SubscriptionService {
                 subscription.getStartDate(), subscription.getStatus()
         );
     }
+
+    @Transactional
+    public SubscriptionResponse updateSubscriptionByCustomer(Integer customerId, SubscriptionRequest request) {
+        Subscription subscription = subscriptionRepository.findByCustomer_CustomerId(customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Bu müşteriye ait abonelik bulunamadı: customerId=" + customerId));
+
+        Product product = productRepository.findById(request.productId())
+                .orElseThrow(() -> new EntityNotFoundException("Ürün bulunamadı: id=" + request.productId()));
+
+        subscription.setProduct(product);
+        if (request.status() != null) {
+            subscription.setStatus(request.status());
+        }
+
+        Subscription updated = subscriptionRepository.save(subscription);
+        return toResponse(updated);
+    }
 }

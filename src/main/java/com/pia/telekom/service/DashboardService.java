@@ -16,6 +16,8 @@ import com.pia.telekom.entity.Invoice;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.Cacheable;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -41,6 +43,7 @@ public class DashboardService {
     private final UpgradeRecommendationService upgradeRecommendationService;
     private final RevenueForecastRepository revenueForecastRepository;
 
+    @Cacheable("dashboardCache")
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard() {
         DashboardStats stats = buildStats();

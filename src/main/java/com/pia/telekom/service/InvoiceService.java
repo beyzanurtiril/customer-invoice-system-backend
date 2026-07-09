@@ -11,6 +11,7 @@ import com.pia.telekom.repository.InvoiceRepository;
 import com.pia.telekom.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,8 @@ public class InvoiceService {
                 .map(this::toResponse);
     }
 
+
+    @CacheEvict(value = {"dashboardCache", "regionalPaymentsCache", "upgradeRecommendationsCache"}, allEntries = true)
     @Transactional
     public InvoiceResponse createInvoice(Integer customerId, InvoiceRequest request) {
         Customer customer = customerRepository.findById(customerId)
@@ -54,6 +57,7 @@ public class InvoiceService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = {"dashboardCache", "regionalPaymentsCache", "upgradeRecommendationsCache"}, allEntries = true)
     @Transactional
     public InvoiceResponse updateInvoice(Integer customerId, Integer invoiceId, InvoiceRequest request) {
         Invoice invoice = getInvoiceForCustomerOrThrow(customerId, invoiceId);
@@ -72,6 +76,7 @@ public class InvoiceService {
         return toResponse(updated);
     }
 
+    @CacheEvict(value = {"dashboardCache", "regionalPaymentsCache", "upgradeRecommendationsCache"}, allEntries = true)
     @Transactional
     public void deleteInvoice(Integer customerId, Integer invoiceId) {
         Invoice invoice = getInvoiceForCustomerOrThrow(customerId, invoiceId);
@@ -134,5 +139,10 @@ public class InvoiceService {
     @Transactional(readOnly = true)
     public Page<InvoiceResponse> getAllInvoices(Pageable pageable) {
         return invoiceRepository.findAllWithCustomer(pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<InvoiceResponse> searchInvoices(String query, String status, Pageable pageable) {
+        return invoiceRepository.searchInvoices(query, status, pageable).map(this::toResponse);
     }
 }

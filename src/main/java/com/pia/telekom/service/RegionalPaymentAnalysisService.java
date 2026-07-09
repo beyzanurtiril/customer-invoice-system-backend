@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,6 +22,7 @@ public class RegionalPaymentAnalysisService {
 
     private final InvoiceRepository invoiceRepository;
 
+    @Cacheable("regionalPaymentsCache")
     @Transactional(readOnly = true)
     public List<RegionalPaymentAnalysisResponse> analyzeByRegion() {
         List<Invoice> allInvoices = invoiceRepository.findAllWithCustomerAndRegion(); // değişen satır

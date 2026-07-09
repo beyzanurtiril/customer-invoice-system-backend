@@ -36,4 +36,11 @@ public class SubscriptionController {
     public List<SubscriptionSummaryRow> getAllSubscriptionSummaries() {
         return subscriptionRepository.findAllSubscriptionSummaries();
     }
+
+    @PutMapping("/by-customer/{customerId}")
+    public SubscriptionResponse updateSubscriptionByCustomer(
+            @PathVariable Integer customerId,
+            @Valid @RequestBody SubscriptionRequest request) {
+        return subscriptionService.updateSubscriptionByCustomer(customerId, request);
+    }
 }

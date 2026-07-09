@@ -7,6 +7,7 @@ import com.pia.telekom.repository.InvoiceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ public class UpgradeRecommendationService {
 
     private final InvoiceRepository invoiceRepository;
 
+    @Cacheable("upgradeRecommendationsCache")
     @Transactional(readOnly = true)
     public List<UpgradeRecommendationResponse> getRecommendations() {
         LocalDate since = LocalDate.now().minusMonths(LOOKBACK_MONTHS);
