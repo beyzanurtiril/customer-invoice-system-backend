@@ -16,6 +16,8 @@ import com.pia.telekom.dto.CustomerRiskAnalysisResponse;
 import com.pia.telekom.dto.RecommendationSummaryItem;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.pia.telekom.dto.RiskCategorySummaryItem;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -196,6 +198,25 @@ public class CustomerRiskAnalysisService {
     public List<RecommendationSummaryItem> getRecommendationSummary() {
         return customerRiskAnalysisRepository.countGroupedByRecommendAction().stream()
                 .map(row -> new RecommendationSummaryItem((String) row[0], (Long) row[1]))
+                .toList();
+    }
+
+    @Cacheable(value = "riskCategorySummaryCache", key = "'main'", sync = true)
+    @Transactional(readOnly = true)
+    public List<RiskCategorySummaryItem> getRiskCategorySummary() {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        counts.put("guvenilir", 0L);
+        counts.put("normal", 0L);
+        counts.put("riskli", 0L);
+
+        for (Object[] row : customerRiskAnalysisRepository.countGroupedByRiskCategory()) {
+            String category = String.valueOf(row[0]);
+            Long count = row[1] instanceof Number number ? number.longValue() : 0L;
+            counts.put(category, count);
+        }
+
+        return counts.entrySet().stream()
+                .map(entry -> new RiskCategorySummaryItem(entry.getKey(), entry.getValue()))
                 .toList();
     }
 

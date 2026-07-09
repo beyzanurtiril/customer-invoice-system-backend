@@ -63,6 +63,11 @@ public class AnalysisController {
         return customerRiskAnalysisService.getRecommendationSummary();
     }
 
+    @GetMapping("/risk-categories/summary")
+    public List<RiskCategorySummaryItem> getRiskCategorySummary() {
+        return customerRiskAnalysisService.getRiskCategorySummary();
+    }
+
     @GetMapping("/recommendations")
     public Page<CustomerRiskAnalysisResponse> getRecommendationsByAction(
             @RequestParam String action,

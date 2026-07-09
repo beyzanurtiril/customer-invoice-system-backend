@@ -43,7 +43,7 @@ public class DashboardService {
     private final UpgradeRecommendationService upgradeRecommendationService;
     private final RevenueForecastRepository revenueForecastRepository;
 
-    @Cacheable("dashboardCache")
+    @Cacheable(value = "dashboardCache", key = "'main'", sync = true)
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard() {
         DashboardStats stats = buildStats();
@@ -80,17 +80,11 @@ public class DashboardService {
     }
 
     private List<RevenuePoint> buildRevenuePoints() {
-        List<Invoice> allInvoices = invoiceRepository.findAllWithCustomerAndRegion();
-
-        Map<String, BigDecimal> monthlyRevenue = allInvoices.stream()
-                .collect(Collectors.groupingBy(
-                        inv -> YearMonth.from(inv.getInvoiceDate()).toString(),
-                        TreeMap::new,
-                        Collectors.reducing(BigDecimal.ZERO, Invoice::getInvoiceAmount, BigDecimal::add)
-                ));
-
-        return monthlyRevenue.entrySet().stream()
-                .map(e -> new RevenuePoint(e.getKey(), e.getValue()))
+        return invoiceRepository.findMonthlyRevenueTotals().stream()
+                .map(row -> new RevenuePoint(
+                        String.valueOf(row[0]),
+                        toBigDecimal(row[1])
+                ))
                 .toList();
     }
 
@@ -120,8 +114,12 @@ public class DashboardService {
     }
 
     private List<CityRevenueItem> buildCityRevenue() {
-        return regionalPaymentAnalysisService.analyzeByRegion().stream()
-                .map(r -> new CityRevenueItem(r.regionName(), r.totalRevenue(), mapCityTypeToGroup(r.city())))
+        return invoiceRepository.findCityRevenueTotals().stream()
+                .map(row -> new CityRevenueItem(
+                        String.valueOf(row[0]),
+                        toBigDecimal(row[1]),
+                        mapCityTypeToGroup(String.valueOf(row[2]))
+                ))
                 .toList();
     }
 
@@ -149,4 +147,12 @@ public class DashboardService {
         String month = now.getMonth().getDisplayName(TextStyle.FULL, new Locale("tr", "TR"));
         return month + " " + now.getYear();
     }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof BigDecimal decimal) return decimal;
+        if (value instanceof Number number) return BigDecimal.valueOf(number.doubleValue());
+        return new BigDecimal(String.valueOf(value));
+    }
+
 }

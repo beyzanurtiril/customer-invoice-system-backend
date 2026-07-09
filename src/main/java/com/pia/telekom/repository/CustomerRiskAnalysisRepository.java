@@ -28,4 +28,28 @@ public interface CustomerRiskAnalysisRepository extends JpaRepository<CustomerRi
 
     @Query("SELECT c.customerId, c.behaviorCategory FROM CustomerRiskAnalysis c WHERE c.customerId IN :customerIds")
     List<Object[]> findBehaviorCategoriesByCustomerIds(@Param("customerIds") List<Integer> customerIds);
+
+
+
+    @Query("""
+    SELECT
+        CASE
+            WHEN c.behaviorCategory = 'guvenli' THEN 'guvenilir'
+            WHEN c.behaviorCategory = 'orta_risk' THEN 'normal'
+            WHEN c.behaviorCategory = 'riskli' THEN 'riskli'
+            ELSE 'normal'
+        END,
+        COUNT(c)
+    FROM CustomerRiskAnalysis c
+    WHERE c.behaviorCategory IS NOT NULL
+    GROUP BY
+        CASE
+            WHEN c.behaviorCategory = 'guvenli' THEN 'guvenilir'
+            WHEN c.behaviorCategory = 'orta_risk' THEN 'normal'
+            WHEN c.behaviorCategory = 'riskli' THEN 'riskli'
+            ELSE 'normal'
+        END
+    """)
+    List<Object[]> countGroupedByRiskCategory();
+
 }

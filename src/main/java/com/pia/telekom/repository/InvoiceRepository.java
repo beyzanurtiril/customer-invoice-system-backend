@@ -41,6 +41,57 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
         JOIN FETCH c.region
         """)
     List<Invoice> findAllWithCustomerAndRegion();
+    /*aggregation*/
+    @Query(value = """
+    SELECT
+        r.region_id AS region_id,
+        r.name AS region_name,
+        r.city_type AS city_type,
+        COUNT(i.invoice_id) AS total_invoice_count,
+        COALESCE(SUM(i.invoice_amount), 0) AS total_revenue,
+        COALESCE(AVG(i.invoice_amount), 0) AS average_invoice_amount,
+        COALESCE(STDDEV_POP(i.invoice_amount), 0) AS invoice_amount_std_dev,
+        COALESCE(
+            100.0 * SUM(
+                CASE
+                    WHEN i.payment_date IS NULL
+                     AND i.due_date IS NOT NULL
+                     AND i.due_date < CURRENT_DATE
+                    THEN 1
+                    ELSE 0
+                END
+            ) / NULLIF(COUNT(i.invoice_id), 0),
+            0
+        ) AS overdue_rate_percentage
+    FROM invoice i
+    JOIN customer c ON c.customer_id = i.customer_id
+    JOIN region r ON r.region_id = c.region_id
+    GROUP BY r.region_id, r.name, r.city_type
+    ORDER BY total_revenue DESC
+    """, nativeQuery = true)
+    List<Object[]> findRegionalPaymentAnalysisRows();
+
+    @Query(value = """
+    SELECT to_char(i.invoice_date, 'YYYY-MM') AS month,
+           COALESCE(SUM(i.invoice_amount), 0) AS total_revenue
+    FROM invoice i
+    WHERE i.invoice_date IS NOT NULL
+    GROUP BY to_char(i.invoice_date, 'YYYY-MM')
+    ORDER BY month
+    """, nativeQuery = true)
+    List<Object[]> findMonthlyRevenueTotals();
+
+    @Query(value = """
+    SELECT r.name AS region_name,
+           COALESCE(SUM(i.invoice_amount), 0) AS total_revenue,
+           r.city_type AS city_type
+    FROM invoice i
+    JOIN customer c ON c.customer_id = i.customer_id
+    JOIN region r ON r.region_id = c.region_id
+    GROUP BY r.name, r.city_type
+    ORDER BY total_revenue DESC
+    """, nativeQuery = true)
+    List<Object[]> findCityRevenueTotals();
 
     @Query(value = "SELECT i FROM Invoice i JOIN FETCH i.customer c LEFT JOIN FETCH i.product",
             countQuery = "SELECT COUNT(i) FROM Invoice i")
