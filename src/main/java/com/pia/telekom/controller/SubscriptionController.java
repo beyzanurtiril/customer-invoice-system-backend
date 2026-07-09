@@ -2,6 +2,8 @@ package com.pia.telekom.controller;
 
 import com.pia.telekom.dto.SubscriptionRequest;
 import com.pia.telekom.dto.SubscriptionResponse;
+import com.pia.telekom.dto.SubscriptionSummaryRow;
+import com.pia.telekom.repository.SubscriptionRepository;
 import com.pia.telekom.service.SubscriptionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import java.util.List;
 public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
+    private final SubscriptionRepository subscriptionRepository;
 
     @GetMapping("/by-customer/{customerId}")
     public SubscriptionResponse getSubscriptionByCustomer(@PathVariable Integer customerId) {
@@ -27,5 +30,10 @@ public class SubscriptionController {
     public ResponseEntity<SubscriptionResponse> createSubscription(@Valid @RequestBody SubscriptionRequest request) {
         SubscriptionResponse created = subscriptionService.createSubscription(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @GetMapping("/summary")
+    public List<SubscriptionSummaryRow> getAllSubscriptionSummaries() {
+        return subscriptionRepository.findAllSubscriptionSummaries();
     }
 }

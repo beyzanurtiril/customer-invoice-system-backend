@@ -1,17 +1,16 @@
 package com.pia.telekom.controller;
 
-import com.pia.telekom.dto.RegionalPaymentAnalysisResponse;
-import com.pia.telekom.dto.RevenueForecastResponse;
-import com.pia.telekom.dto.UpgradeRecommendationResponse;
+import com.pia.telekom.dto.*;
 import com.pia.telekom.entity.RevenueForecast;
 import com.pia.telekom.repository.RevenueForecastRepository;
 import com.pia.telekom.service.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -57,5 +56,17 @@ public class AnalysisController {
         int count = customerRiskAnalysisService.recalculateAll();
         return count + " müşteri için risk analizi güncellendi";
 
+    }
+
+    @GetMapping("/recommendations/summary")
+    public List<RecommendationSummaryItem> getRecommendationSummary() {
+        return customerRiskAnalysisService.getRecommendationSummary();
+    }
+
+    @GetMapping("/recommendations")
+    public Page<CustomerRiskAnalysisResponse> getRecommendationsByAction(
+            @RequestParam String action,
+            @ParameterObject Pageable pageable) {
+        return customerRiskAnalysisService.getRecommendationsByAction(action, pageable);
     }
 }

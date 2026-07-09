@@ -1,5 +1,7 @@
 package com.pia.telekom.service;
 
+import com.pia.telekom.dto.CustomerRiskAnalysisResponse;
+import com.pia.telekom.dto.RecommendationSummaryItem;
 import com.pia.telekom.dto.SubscriptionTypeRow;
 import com.pia.telekom.entity.CustomerRiskAnalysis;
 import com.pia.telekom.entity.CustomerStats;
@@ -10,6 +12,10 @@ import com.pia.telekom.repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pia.telekom.dto.CustomerRiskAnalysisResponse;
+import com.pia.telekom.dto.RecommendationSummaryItem;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -184,5 +190,24 @@ public class CustomerRiskAnalysisService {
             }
             default -> "takip_arama";
         };
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecommendationSummaryItem> getRecommendationSummary() {
+        return customerRiskAnalysisRepository.countGroupedByRecommendAction().stream()
+                .map(row -> new RecommendationSummaryItem((String) row[0], (Long) row[1]))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CustomerRiskAnalysisResponse> getRecommendationsByAction(String action, Pageable pageable) {
+        return customerRiskAnalysisRepository.findByRecommendAction(action, pageable)
+                .map(cra -> new CustomerRiskAnalysisResponse(
+                        cra.getCustomerId(),
+                        cra.getCustomer().getName() + " " + cra.getCustomer().getSurname(),
+                        cra.getRiskScore(),
+                        cra.getBehaviorCategory(),
+                        cra.getRecommendAction()
+                ));
     }
 }
