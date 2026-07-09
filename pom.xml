@@ -99,6 +99,11 @@
 			<version>3.6.1</version>
 			<scope>compile</scope>
 		</dependency>
+		<!-- Sadece BCrypt için; tam Spring Security zinciri kurulmaz -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-crypto</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>

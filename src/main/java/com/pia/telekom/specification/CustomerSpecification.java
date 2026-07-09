@@ -18,8 +18,19 @@ public class CustomerSpecification {
             var predicates = cb.conjunction();
 
             if (name != null && !name.isBlank()) {
-                predicates = cb.and(predicates,
-                        cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+                String[] tokens = name.trim().split("\\s+");
+                var searchPredicate = cb.conjunction();
+
+                for (String token : tokens) {
+                    String pattern = "%" + token.toLowerCase() + "%";
+                    var tokenPredicate = cb.or(
+                            cb.like(cb.lower(root.get("name")), pattern),
+                            cb.like(cb.lower(root.get("surname")), pattern)
+                    );
+                    searchPredicate = cb.and(searchPredicate, tokenPredicate);
+                }
+
+                predicates = cb.and(predicates, searchPredicate);
             }
             if (surname != null && !surname.isBlank()) {
                 predicates = cb.and(predicates,
