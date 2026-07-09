@@ -109,4 +109,44 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
     )
     """)
     Page<Invoice> searchInvoices(@Param("query") String query, Pageable pageable);
+
+    /* ---- Faturalar sayfası özet kartları (InvoiceSummaryService) ---- */
+
+    /** Son 5 yılın yıllık ciro ortalaması. */
+    @Query(value = """
+        SELECT COALESCE(AVG(yearly_total), 0)
+        FROM (
+            SELECT date_part('year', i.invoice_date) AS y,
+                   SUM(i.invoice_amount)             AS yearly_total
+            FROM invoice i
+            WHERE i.invoice_date >= (CURRENT_DATE - INTERVAL '5 year')
+            GROUP BY date_part('year', i.invoice_date)
+        ) t
+        """, nativeQuery = true)
+    java.math.BigDecimal averageAnnualRevenueLastFiveYears();
+
+    /** Son ödeme tarihini 3+ gün geçmiş ve hâlâ ödenmemiş fatura adedi. */
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM invoice i
+        WHERE i.payment_date IS NULL
+          AND i.due_date < (CURRENT_DATE - 3)
+        """, nativeQuery = true)
+    long countOverdueMoreThanThreeDays();
+
+    /*
+      Paket aşımı yapan faturalar: [adet, ortalama aşım tutarı].
+      TARİH PENCERESİ BİLİNÇLİ OLARAK YOK: önce "son 30 gün (bugüne göre)",
+      sonra "son 30 gün (en son faturaya göre)" denendi; seed verinin aşımlı
+      satırları o dilimlere düşmediği için kart 0 gösterdi. Tüm zamanlar
+      üzerinden sayım, veri varsa her koşulda sonuç üretir. Dönemsel pencere
+      istenirse WHERE'e tarih koşulu eklemek yeterlidir.
+    */
+    @Query(value = """
+        SELECT COUNT(*)                           AS overage_count,
+               COALESCE(AVG(i.overage_amount), 0) AS avg_overage
+        FROM invoice i
+        WHERE i.overage_amount > 0
+        """, nativeQuery = true)
+    java.util.List<Object[]> overageStatsLastThirtyDays();
 }
